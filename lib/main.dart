@@ -1,578 +1,153 @@
-import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart' as ble;
-import 'package:wifi_scan/wifi_scan.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'services/mqtt_service.dart';
+import 'providers/device_provider.dart';
+import 'providers/theme_provider.dart';
+import 'theme/app_theme.dart';
+import 'screens/home_screen.dart';
+import 'screens/control_screen.dart';
+import 'screens/info_screen.dart';
+import 'screens/log_screen.dart';
 
-import 'services/permission_service.dart';
-import 'services/wifi_service.dart';
-import 'services/bluetooth_service.dart';
-
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ConnectivityApp());
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  final mqttService = MqttService();
+  mqttService.connect();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => DeviceProvider(mqttService)),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class ConnectivityApp extends StatelessWidget {
-  const ConnectivityApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter WiFi & Bluetooth Setup',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0F62FE),
-          brightness: Brightness.light,
-        ),
+    final themeProvider = context.watch<ThemeProvider>();
+
+    final isDark = themeProvider.themeMode == ThemeMode.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: MaterialApp(
+        title: 'Pestzone Spray',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeProvider.themeMode,
+        home: const MainScreen(),
+        debugShowCheckedModeBanner: false,
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0F62FE),
-          brightness: Brightness.dark,
-        ),
-      ),
-      themeMode: ThemeMode.system,
-      home: const MainHomeScreen(),
     );
   }
 }
 
-class MainHomeScreen extends StatefulWidget {
-  const MainHomeScreen({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<MainHomeScreen> createState() => _MainHomeScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainHomeScreenState extends State<MainHomeScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _requestPermissions();
-  }
+  String? _selectedDeviceIdForControl;
 
-  Future<void> _requestPermissions() async {
-    bool granted = await PermissionService.requestAllPermissions();
-    if (mounted && !granted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Beberapa izin lokasi / bluetooth belum diberikan.'),
-        ),
-      );
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0:
+        return HomeScreen(
+          onDeviceTap: (deviceId) {
+            setState(() {
+              _selectedDeviceIdForControl = deviceId;
+              _currentIndex = 1;
+            });
+          },
+        );
+      case 1:
+        return ControlScreen(initialDeviceId: _selectedDeviceIdForControl);
+      case 2:
+        return const LogScreen();
+      case 3:
+        return const InfoScreen();
+      default:
+        return const SizedBox.shrink();
     }
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Flutter WiFi & Bluetooth',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shield_outlined),
-            tooltip: 'Minta Izin',
-            onPressed: () async {
-              await _requestPermissions();
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.wifi), text: 'Wi-Fi'),
-            Tab(icon: Icon(Icons.bluetooth), text: 'Bluetooth'),
-          ],
-        ),
+      extendBody: true,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _buildScreen(_currentIndex),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          WifiTabScreen(),
-          BluetoothTabScreen(),
-        ],
-      ),
-    );
-  }
-}
-
-/* ========================================================================= */
-/*                               WI-FI TAB                                   */
-/* ========================================================================= */
-
-class WifiTabScreen extends StatefulWidget {
-  const WifiTabScreen({super.key});
-
-  @override
-  State<WifiTabScreen> createState() => _WifiTabScreenState();
-}
-
-class _WifiTabScreenState extends State<WifiTabScreen> {
-  final WifiService _wifiService = WifiService();
-  WifiInfo _currentWifi = WifiInfo();
-  List<WiFiAccessPoint> _accessPoints = [];
-  bool _isScanning = false;
-  StreamSubscription? _connectivitySub;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCurrentWifiInfo();
-    _connectivitySub = _wifiService.onConnectivityChanged.listen((_) {
-      _loadCurrentWifiInfo();
-    });
-  }
-
-  @override
-  void dispose() {
-    _connectivitySub?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadCurrentWifiInfo() async {
-    final info = await _wifiService.getCurrentWifiInfo();
-    if (mounted) {
-      setState(() {
-        _currentWifi = info;
-      });
-    }
-  }
-
-  Future<void> _scanWifi() async {
-    setState(() {
-      _isScanning = true;
-    });
-
-    bool canScan = await _wifiService.canScanWifi();
-    if (!canScan) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pemindaian WiFi tidak didukung atau butuh izin lokasi.'),
-          ),
-        );
-        setState(() {
-          _isScanning = false;
-        });
-      }
-      return;
-    }
-
-    bool started = await _wifiService.startScan();
-    if (started) {
-      await Future.delayed(const Duration(seconds: 3));
-      final results = await _wifiService.getScannedAccessPoints();
-      if (mounted) {
-        setState(() {
-          _accessPoints = results;
-          _isScanning = false;
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _isScanning = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        await _loadCurrentWifiInfo();
-        await _scanWifi();
-      },
-      child: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // Card Status Wi-Fi Terkoneksi
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.wifi,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Status Wi-Fi',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            Text(
-                              _currentWifi.ssid ?? 'Tidak Terkoneksi',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: _loadCurrentWifiInfo,
-                      ),
-                    ],
-                  ),
-                  if (_currentWifi.ipAddress != null) ...[
-                    const Divider(height: 24),
-                    Text('IP Address: ${_currentWifi.ipAddress}'),
-                    if (_currentWifi.bssid != null)
-                      Text('BSSID: ${_currentWifi.bssid}'),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Tombol Scan Wi-Fi
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Jaringan Sekitar (${_accessPoints.length})',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              ElevatedButton.icon(
-                onPressed: _isScanning ? null : _scanWifi,
-                icon: _isScanning
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search),
-                label: Text(_isScanning ? 'Memindai...' : 'Scan WiFi'),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          decoration: BoxDecoration(
+            color: context.colors.cardBg.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // List Hasil Scan Wi-Fi
-          if (_accessPoints.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Text(
-                    _isScanning
-                        ? 'Sedang mencari jaringan Wi-Fi...'
-                        : 'Tekan "Scan WiFi" untuk mencari jaringan di sekitar.',
-                    textAlign: TextAlign.center,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: (index) => setState(() => _currentIndex = index),
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                selectedItemColor: context.colors.primaryGreen,
+                unselectedItemColor: context.colors.textSecondary,
+                showSelectedLabels: true,
+                showUnselectedLabels: false,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home_rounded),
+                    activeIcon: Icon(Icons.home_rounded, size: 28),
+                    label: 'Beranda',
                   ),
-                ),
-              ),
-            )
-          else
-            ..._accessPoints.map(
-              (ap) => Card(
-                margin: const EdgeInsets.only(bottom: 8.0),
-                child: ListTile(
-                  leading: const Icon(Icons.wifi_lock),
-                  title: Text(ap.ssid.isEmpty ? '[Hidden SSID]' : ap.ssid),
-                  subtitle: Text('Sinyal: ${ap.level} dBm | Frekuensi: ${ap.frequency} MHz'),
-                  trailing: ElevatedButton(
-                    onPressed: () {
-                      _showConnectDialog(context, ap.ssid);
-                    },
-                    child: const Text('Konek'),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.tune_rounded),
+                    activeIcon: Icon(Icons.tune_rounded, size: 28),
+                    label: 'Kontrol',
                   ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _showConnectDialog(BuildContext context, String ssid) {
-    final passController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Konek ke $ssid'),
-        content: TextField(
-          controller: passController,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Password WiFi',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Permintaan menghubungkan ke $ssid telah diproses.',
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.analytics_rounded),
+                    activeIcon: Icon(Icons.analytics_rounded, size: 28),
+                    label: 'Log',
                   ),
-                ),
-              );
-            },
-            child: const Text('Hubungkan'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/* ========================================================================= */
-/*                             BLUETOOTH TAB                                 */
-/* ========================================================================= */
-
-class BluetoothTabScreen extends StatefulWidget {
-  const BluetoothTabScreen({super.key});
-
-  @override
-  State<BluetoothTabScreen> createState() => _BluetoothTabScreenState();
-}
-
-class _BluetoothTabScreenState extends State<BluetoothTabScreen> {
-  final BluetoothServiceHelper _btService = BluetoothServiceHelper();
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<ble.BluetoothAdapterState>(
-      stream: _btService.adapterState,
-      initialData: ble.BluetoothAdapterState.unknown,
-      builder: (context, snapshot) {
-        final adapterState = snapshot.data;
-
-        if (adapterState != ble.BluetoothAdapterState.on) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.bluetooth_disabled,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Bluetooth Tidak Aktif (${adapterState.toString().split('.').last})',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        await ble.FlutterBluePlus.turnOn();
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Gagal mengaktifkan Bluetooth: $e'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    child: const Text('Aktifkan Bluetooth'),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.settings_rounded),
+                    activeIcon: Icon(Icons.settings_rounded, size: 28),
+                    label: 'Pengaturan',
                   ),
                 ],
               ),
             ),
-          );
-        }
-
-        return Column(
-          children: [
-            // Controls section
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: StreamBuilder<bool>(
-                stream: _btService.isScanning,
-                initialData: false,
-                builder: (context, scanSnap) {
-                  final isScanning = scanSnap.data ?? false;
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Perangkat BLE Sekitar',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          if (isScanning) {
-                            await _btService.stopScan();
-                          } else {
-                            try {
-                              await _btService.startScan();
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(e.toString())),
-                                );
-                              }
-                            }
-                          }
-                        },
-                        icon: isScanning
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.bluetooth_searching),
-                        label: Text(isScanning ? 'Hentikan' : 'Scan Bluetooth'),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-
-            // Devices list
-            Expanded(
-              child: StreamBuilder<List<ble.ScanResult>>(
-                stream: _btService.scanResults,
-                initialData: const [],
-                builder: (context, snapshot) {
-                  final results = snapshot.data ?? [];
-                  if (results.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'Belum ada perangkat terdeteksi.\nTekan "Scan Bluetooth" untuk memulai.',
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: results.length,
-                    itemBuilder: (context, index) {
-                      final result = results[index];
-                      final deviceName = result.device.platformName.isNotEmpty
-                          ? result.device.platformName
-                          : (result.advertisementData.advName.isNotEmpty
-                              ? result.advertisementData.advName
-                              : 'Perangkat Tanpa Nama');
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16.0,
-                          vertical: 4.0,
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            child: Text('${result.rssi}'),
-                          ),
-                          title: Text(deviceName),
-                          subtitle: Text(result.device.remoteId.str),
-                          trailing: StreamBuilder<ble.BluetoothConnectionState>(
-                            stream: result.device.connectionState,
-                            initialData:
-                                ble.BluetoothConnectionState.disconnected,
-                            builder: (context, connSnap) {
-                              final connState = connSnap.data;
-                              final isConnected = connState ==
-                                  ble.BluetoothConnectionState.connected;
-
-                              return ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isConnected
-                                      ? Colors.red.shade100
-                                      : null,
-                                ),
-                                onPressed: () async {
-                                  if (isConnected) {
-                                    await _btService
-                                        .disconnectDevice(result.device);
-                                  } else {
-                                    try {
-                                      await _btService
-                                          .connectDevice(result.device);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Terhubung ke $deviceName',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Gagal mengoneksikan: $e',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }
-                                },
-                                child: Text(
-                                  isConnected ? 'Putus' : 'Sambungkan',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ),
     );
   }
 }
