@@ -1,6 +1,6 @@
 {
-    "name": "pest_trap_watering",
-    "short_name": "pest_trap_watering",
+    "name": "alburdat_dashboard",
+    "short_name": "alburdat_dashboard",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

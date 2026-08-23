@@ -1,4 +1,4 @@
-package com.example.pest_trap_watering
+package com.example.alburdat_dashboard
 
 import io.flutter.embedding.android.FlutterActivity
 
