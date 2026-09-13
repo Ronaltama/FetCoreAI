@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:alburdat_dashboard/models/device_status.dart';
-import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:ferticore_ai/models/device_status.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StatistikCardWidget extends StatefulWidget {
   final DeviceStatus? status;
-  final MqttService mqtt;
+  final BleService ble;
 
   const StatistikCardWidget({
     super.key,
     required this.status,
-    required this.mqtt,
+    required this.ble,
   });
 
   @override
@@ -73,11 +73,11 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        if (!widget.mqtt.isEspOnline) {
-                          _showFeedback('ESP tidak aktif', isError: true);
+                        if (widget.ble.activeDevice == null) {
+                          _showFeedback('Tidak ada perangkat aktif', isError: true);
                           return;
                         }
-                        widget.mqtt.resetStats();
+                        widget.ble.resetStats();
                         _showFeedback('Perintah reset statistik terkirim');
                       },
                       child: const Text('Reset'),

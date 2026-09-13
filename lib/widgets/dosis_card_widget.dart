@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:alburdat_dashboard/models/device_status.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DosisCardWidget extends StatelessWidget {
-  final DeviceStatus? status;
+  final BleService ble;
 
-  const DosisCardWidget({super.key, required this.status});
+  const DosisCardWidget({super.key, required this.ble});
 
   @override
   Widget build(BuildContext context) {
+    final activeDevice = ble.activeDevice;
+    final status = ble.activeDeviceStatus;
+    final hasDevice = activeDevice != null;
+    final hasData = status != null;
     final dosis = status?.gramasi ?? 0.0;
+    final isMotorRunning = status?.isMotorRunning ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -43,12 +48,19 @@ class DosisCardWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dosis Saat Ini',
+                      'Dosis Saat Ini (Load Cell)',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     Text(
-                      'Alat Presisi',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      hasDevice
+                          ? '${activeDevice.advName.isNotEmpty ? activeDevice.advName : "ESP32"} (${activeDevice.remoteId.str})'
+                          : 'Tidak ada perangkat terhubung',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: hasDevice ? AppTheme.primaryBlue : AppTheme.errorColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -62,65 +74,101 @@ class DosisCardWidget extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  dosis.toStringAsFixed(2),
+                  hasDevice ? dosis.toStringAsFixed(2) : '--',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 48,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.primaryBlue,
+                    color: hasDevice ? AppTheme.primaryBlue : AppTheme.textGrey,
                   ),
                 ),
                 const SizedBox(height: AppTheme.spacingSM),
                 Text(
-                  'gram',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
+                  hasDevice ? 'gram (Data Real-time ESP32)' : 'Hubungkan alat via menu Device',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppTheme.spacingXL),
 
-          // Status indicator
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacingMD,
-              vertical: AppTheme.spacingSM,
-            ),
-            decoration: BoxDecoration(
-              color:
-                  (_isStatusActive(dosis)
-                          ? AppTheme.successColor
+          // Status indicators
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Device status indicator
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacingMD,
+                  vertical: AppTheme.spacingSM,
+                ),
+                decoration: BoxDecoration(
+                  color: (hasDevice
+                          ? (hasData ? AppTheme.successColor : AppTheme.warningColor)
                           : AppTheme.textGrey)
                       .withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.radiusSM),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  size: 14,
-                  color: _isStatusActive(dosis)
-                      ? AppTheme.successColor
-                      : AppTheme.textGrey,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
                 ),
-                const SizedBox(width: AppTheme.spacingSM),
-                Text(
-                  _isStatusActive(dosis) ? 'Aktif' : 'Idle',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: _isStatusActive(dosis)
-                        ? AppTheme.successColor
-                        : AppTheme.textGrey,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      hasDevice
+                          ? (hasData ? Icons.check_circle : Icons.sync)
+                          : Icons.cancel_outlined,
+                      size: 14,
+                      color: hasDevice
+                          ? (hasData ? AppTheme.successColor : AppTheme.warningColor)
+                          : AppTheme.textGrey,
+                    ),
+                    const SizedBox(width: AppTheme.spacingSM),
+                    Text(
+                      !hasDevice
+                          ? 'Offline'
+                          : (hasData ? 'Terhubung (Online)' : 'Menunggu Telemetry...'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: hasDevice
+                                ? (hasData ? AppTheme.successColor : AppTheme.warningColor)
+                                : AppTheme.textGrey,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Motor tabur status
+              if (hasDevice)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacingMD,
+                    vertical: AppTheme.spacingSM,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (isMotorRunning ? AppTheme.accentGreen : AppTheme.textGrey)
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.rotate_right_rounded,
+                        size: 14,
+                        color: isMotorRunning ? AppTheme.accentGreen : AppTheme.textGrey,
+                      ),
+                      const SizedBox(width: AppTheme.spacingSM),
+                      Text(
+                        isMotorRunning ? 'Motor: Menabur' : 'Motor: Standby',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: isMotorRunning ? AppTheme.accentGreen : AppTheme.textGrey,
+                            ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         ],
       ),
     );
   }
-
-  bool _isStatusActive(double dosis) => dosis > 0;
 }

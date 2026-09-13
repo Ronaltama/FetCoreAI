@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
-import 'package:alburdat_dashboard/screens/home_screen.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/services/history_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
+import 'package:ferticore_ai/screens/home_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +16,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => MqttService()..connect()),
+        ChangeNotifierProvider(create: (_) => BleService()),
+        ChangeNotifierProvider(create: (_) => HistoryService()),
       ],
       child: MaterialApp(
         title: 'FERTICORE AI Dashboard',

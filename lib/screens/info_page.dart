@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class InfoPage extends StatelessWidget {
@@ -9,31 +9,45 @@ class InfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mqtt = Provider.of<MqttService>(context);
+    final ble = Provider.of<BleService>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Informasi', style: Theme.of(context).textTheme.headlineSmall),
-            Text(
-              'Tentang aplikasi dan status sistem',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
-            ),
-          ],
-        ),
-        elevation: 0,
-        backgroundColor: AppTheme.surfaceLight,
-        foregroundColor: AppTheme.textDark,
-      ),
+      backgroundColor: AppTheme.backgroundLight,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16), // beri padding merata
+        padding: const EdgeInsets.all(AppTheme.spacingLG),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ================= APP INFO =================
             _appInfo(context),
+            const SizedBox(height: AppTheme.spacingXL),
+
+            // ================= STATUS =================
+            Text('Status Sistem', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: AppTheme.spacingLG),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatusCard(
+                    title: 'Bluetooth HP',
+                    status: ble.isBluetoothOn ? 'Aktif' : 'Nonaktif',
+                    isActive: ble.isBluetoothOn,
+                    icon: Icons.bluetooth,
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spacingLG),
+                Expanded(
+                  child: _buildStatusCard(
+                    title: 'Perangkat',
+                    status: ble.connectedDevices.isNotEmpty 
+                        ? '${ble.connectedDevices.length} Terhubung' 
+                        : 'Tidak Terhubung',
+                    isActive: ble.connectedDevices.isNotEmpty,
+                    icon: Icons.link,
+                  ),
+                ),
+              ],
+            ),
 
             const SizedBox(height: AppTheme.spacingXL),
 
@@ -44,42 +58,12 @@ class InfoPage extends StatelessWidget {
 
             const SizedBox(height: AppTheme.spacingXL),
 
-            // ================= STATUS =================
-            Text('Status Sistem', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppTheme.spacingLG),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatusCard(
-                    title: 'MQTT Broker',
-                    status: mqtt.isConnected ? 'Terhubung' : 'Tidak Terhubung',
-                    isActive: mqtt.isConnected,
-                    icon: Icons.cloud_rounded,
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spacingLG),
-                Expanded(
-                  child: _buildStatusCard(
-                    title: 'ESP Device',
-                    status: mqtt.isEspOnline ? 'Online' : 'Offline',
-                    isActive: mqtt.isEspOnline,
-                    icon: Icons.router_rounded,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: AppTheme.spacingXL),
-
             // ================= VERSION =================
             _versionCard(context),
-
-            // Tidak ada Spacer atau apapun, scroll alami
-            const SizedBox(height: 24), // sedikit ruang bawah opsional
+            const SizedBox(height: 24),
           ],
         ),
       ),
-      backgroundColor: AppTheme.backgroundLight,
     );
   }
 
@@ -106,10 +90,10 @@ class InfoPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('FERTICORE AI', style: Theme.of(context).textTheme.titleLarge),
+                Text('FERTICORE AI (BLE)', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: AppTheme.spacingSM),
                 Text(
-                  'Sistem kontrol dan monitoring alat tabur pupuk berbasis IoT',
+                  'Sistem kontrol dan monitoring alat tabur pupuk presisi via Bluetooth',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
                 ),
               ],
@@ -122,11 +106,11 @@ class InfoPage extends StatelessWidget {
 
   List<Widget> _buildFeatures(BuildContext context) {
     final features = [
-      ('Monitoring Dosis', 'Pantau dosis pupuk secara real-time', Icons.monitor_heart_rounded),
-      ('Rekomendasi', 'Hitung dosis berbasis AI agronomi', Icons.lightbulb_rounded),
-      ('Kontrol Manual', 'Atur dosis sesuai kebutuhan', Icons.touch_app_rounded),
-      ('Pengaturan WiFi', 'Kelola koneksi jaringan', Icons.wifi_rounded),
-      ('Statistik', 'Analisis penggunaan sistem', Icons.bar_chart_rounded),
+      ('Monitoring Dosis', 'Pantau dosis pupuk secara real-time langsung dari perangkat via BLE', Icons.monitor_heart_rounded),
+      ('Rekomendasi AI', 'Hitung dosis berbasis agronomi (komoditas, luas, HST)', Icons.lightbulb_rounded),
+      ('Kontrol Manual', 'Atur dosis sesuai kebutuhan dengan cepat', Icons.touch_app_rounded),
+      ('Multi-Device', 'Terhubung dan kontrol beberapa alat sekaligus', Icons.devices),
+      ('Riwayat Pemupukan', 'Log otomatis penggunaan pupuk tersimpan di aplikasi', Icons.history),
     ];
 
     return features.map((feature) {
@@ -177,6 +161,7 @@ class InfoPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacingLG),
       decoration: BoxDecoration(
+        color: AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(AppTheme.radiusMD),
         border: Border.all(
           color: isActive
@@ -192,6 +177,7 @@ class InfoPage extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             status,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: isActive ? AppTheme.successColor : AppTheme.errorColor,
@@ -214,7 +200,7 @@ class InfoPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text('Versi Aplikasi', style: Theme.of(context).textTheme.bodySmall),
-          Text('1.0.0', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          Text('1.1.0 (BLE)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
         ],
       ),
     );

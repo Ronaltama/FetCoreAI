@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/widgets/dosis_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/statistik_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/rekomendasi_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/manual_dosis_card_widget.dart';
-import 'package:alburdat_dashboard/widgets/wifi_settings_card_widget.dart';
-import 'package:alburdat_dashboard/screens/info_page.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'package:ferticore_ai/widgets/dosis_card_widget.dart';
+import 'package:ferticore_ai/widgets/statistik_card_widget.dart';
+import 'package:ferticore_ai/screens/device_page.dart';
+import 'package:ferticore_ai/screens/aksi_page.dart';
+import 'package:ferticore_ai/screens/riwayat_page.dart';
+import 'package:ferticore_ai/screens/info_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final mqtt = Provider.of<MqttService>(context);
+    final ble = Provider.of<BleService>(context);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
@@ -47,52 +48,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             Text(
-              'Dashboard Sistem Pengontrol Dosis',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
+              'Sistem Tabur Presisi (BLE)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
             ),
           ],
         ),
         elevation: 0,
         backgroundColor: AppTheme.surfaceLight,
         foregroundColor: AppTheme.textDark,
-        actions: [_buildConnectionStatus(mqtt)],
+        actions: [_buildConnectionStatus(ble)],
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(), // Hindari swipe agar tidak konflik dengan tab di dalam aksi_page
         children: [
-          // Tab 1: Dosis Alat
+          // Tab 1: Dashboard
           SingleChildScrollView(
             padding: const EdgeInsets.all(AppTheme.spacingLG),
             child: Column(
               children: [
-                DosisCardWidget(status: mqtt.latestStatus),
+                DosisCardWidget(ble: ble),
                 const SizedBox(height: AppTheme.spacingXL),
-                StatistikCardWidget(status: mqtt.latestStatus, mqtt: mqtt),
+                StatistikCardWidget(status: ble.activeDeviceStatus, ble: ble),
               ],
             ),
           ),
-          // Tab 2: Rekomendasi Dosis
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.spacingLG),
-            child: RekomendasiCardWidget(mqtt: mqtt),
-          ),
-          // Tab 3: Dosis Manual
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.spacingLG),
-            child: ManualDosisCardWidget(mqtt: mqtt),
-          ),
-          // Tab 4: WiFi Settings
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.spacingLG),
-            child: WifiSettingsCardWidget(mqtt: mqtt),
-          ),
-          // Tab 5: Informasi
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.spacingLG),
-            child: const InfoPage(),
-          ),
+          // Tab 2: Device
+          const DevicePage(),
+          // Tab 3: Aksi
+          const AksiPage(),
+          // Tab 4: Riwayat
+          const RiwayatPage(),
+          // Tab 5: Setting (Info)
+          const InfoPage(),
         ],
       ),
       // Modern Bottom Navigation Bar
@@ -106,16 +94,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           indicatorColor: AppTheme.primaryBlue,
           labelColor: AppTheme.primaryBlue,
           unselectedLabelColor: AppTheme.textGrey,
-          labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
-          unselectedLabelStyle: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w500,
-          ),
+          labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 10),
+          unselectedLabelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w500, fontSize: 10),
+          labelPadding: EdgeInsets.zero,
           tabs: const [
             Tab(icon: Icon(Icons.dashboard_rounded), text: 'Dashboard'),
-            Tab(icon: Icon(Icons.lightbulb_rounded), text: 'Rekomendasi'),
-            Tab(icon: Icon(Icons.handshake_rounded), text: 'Manual'),
-            Tab(icon: Icon(Icons.wifi_rounded), text: 'WiFi'),
-            Tab(icon: Icon(Icons.info_rounded), text: 'Info'),
+            Tab(icon: Icon(Icons.bluetooth), text: 'Device'),
+            Tab(icon: Icon(Icons.touch_app), text: 'Aksi'),
+            Tab(icon: Icon(Icons.history), text: 'Riwayat'),
+            Tab(icon: Icon(Icons.settings), text: 'Setting'),
           ],
         ),
       ),
@@ -123,27 +110,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // Connection status indicator
-  Widget _buildConnectionStatus(MqttService mqtt) {
+  Widget _buildConnectionStatus(BleService ble) {
     String statusText;
     Color color;
     IconData icon;
 
-    if (mqtt.isConnecting) {
-      statusText = 'Menghubungkan...';
-      color = AppTheme.warningColor;
-      icon = Icons.sync;
-    } else if (mqtt.isEspOnline) {
-      statusText = 'ESP Online';
-      color = AppTheme.successColor;
-      icon = Icons.wifi;
-    } else if (mqtt.isConnected) {
-      statusText = 'Broker OK';
-      color = AppTheme.warningColor;
-      icon = Icons.cloud;
-    } else {
-      statusText = 'Offline';
+    if (!ble.isBluetoothOn) {
+      statusText = 'BT Off';
       color = AppTheme.errorColor;
-      icon = Icons.wifi_off;
+      icon = Icons.bluetooth_disabled;
+    } else if (ble.connectedDevices.isNotEmpty) {
+      statusText = '${ble.connectedDevices.length} Connected';
+      color = AppTheme.successColor;
+      icon = Icons.bluetooth_connected;
+    } else if (ble.isScanning) {
+      statusText = 'Scanning...';
+      color = AppTheme.warningColor;
+      icon = Icons.search;
+    } else {
+      statusText = 'Disconnected';
+      color = AppTheme.textGrey;
+      icon = Icons.bluetooth;
     }
 
     return Padding(
@@ -166,45 +153,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 const SizedBox(width: AppTheme.spacingSM),
                 Text(
                   statusText,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: color),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
                 ),
               ],
             ),
           ),
-          if (!mqtt.isConnected && !mqtt.isConnecting) ...[
-            const SizedBox(width: AppTheme.spacingMD),
-            Tooltip(
-              message: 'Hubungkan ulang ke broker',
-              child: IconButton(
-                onPressed: () {
-                  mqtt.connect();
-                  _showFeedback('Menghubungkan kembali ke broker...');
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                padding: const EdgeInsets.all(AppTheme.spacingSM),
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                tooltip: 'Reconnect',
-              ),
-            ),
-          ],
         ],
-      ),
-    );
-  }
-
-  // Feedback snackbar
-  void _showFeedback(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-        ),
       ),
     );
   }

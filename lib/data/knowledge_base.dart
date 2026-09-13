@@ -1,6 +1,6 @@
-import 'package:alburdat_dashboard/models/commodity.dart';
-import 'package:alburdat_dashboard/models/fertilizer.dart';
-import 'package:alburdat_dashboard/models/rule.dart';
+import 'package:ferticore_ai/models/commodity.dart';
+import 'package:ferticore_ai/models/fertilizer.dart';
+import 'package:ferticore_ai/models/rule.dart';
 
 /// ========================
 /// FERTILIZER MASTER DATA

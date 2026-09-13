@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:provider/provider.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/services/history_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
 
 class ManualDosisCardWidget extends StatefulWidget {
-  final MqttService mqtt;
-
-  const ManualDosisCardWidget({super.key, required this.mqtt});
+  const ManualDosisCardWidget({super.key});
 
   @override
   State<ManualDosisCardWidget> createState() => _ManualDosisCardWidgetState();
@@ -47,13 +47,26 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
       return;
     }
 
-    if (!widget.mqtt.isEspOnline) {
-      _showFeedback('ESP tidak aktif', isError: true);
+    final ble = Provider.of<BleService>(context, listen: false);
+    final history = Provider.of<HistoryService>(context, listen: false);
+
+    if (ble.activeDevice == null) {
+      _showFeedback('Tidak ada perangkat aktif. Pilih di menu Device.', isError: true);
       setState(() => _isLoading = false);
       return;
     }
 
-    widget.mqtt.setDosis(dosis);
+    ble.setDosis(dosis);
+    
+    // Save to history
+    await history.addRecord(
+      deviceName: ble.activeDevice?.advName ?? 'Unknown Device',
+      deviceId: ble.activeDevice?.remoteId.str ?? '',
+      action: 'Manual',
+      dosis: dosis,
+      details: 'Pengaturan dosis manual',
+    );
+
     _showFeedback('Dosis $dosis gram telah dikirim');
     _manualDosisController.clear();
 

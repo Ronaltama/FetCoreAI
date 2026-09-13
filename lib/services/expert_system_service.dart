@@ -1,6 +1,6 @@
-import 'package:alburdat_dashboard/data/knowledge_base.dart';
-import 'package:alburdat_dashboard/models/calculation_input.dart';
-import 'package:alburdat_dashboard/models/calculation_result.dart';
+import 'package:ferticore_ai/data/knowledge_base.dart';
+import 'package:ferticore_ai/models/calculation_input.dart';
+import 'package:ferticore_ai/models/calculation_result.dart';
 
 class ExpertSystemService {
   static double getBaseDosis(int commodityId, double hst) {

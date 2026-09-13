@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:alburdat_dashboard/models/commodity.dart';
-import 'package:alburdat_dashboard/models/fertilizer.dart';
-import 'package:alburdat_dashboard/models/calculation_input.dart';
-import 'package:alburdat_dashboard/models/calculation_result.dart';
-import 'package:alburdat_dashboard/services/expert_system_service.dart';
-import 'package:alburdat_dashboard/data/knowledge_base.dart';
-import 'package:alburdat_dashboard/services/mqtt_service.dart';
-import 'package:alburdat_dashboard/theme/theme.dart';
+import 'package:ferticore_ai/models/commodity.dart';
+import 'package:ferticore_ai/models/fertilizer.dart';
+import 'package:ferticore_ai/models/calculation_input.dart';
+import 'package:ferticore_ai/models/calculation_result.dart';
+import 'package:ferticore_ai/services/expert_system_service.dart';
+import 'package:ferticore_ai/data/knowledge_base.dart';
+import 'package:provider/provider.dart';
+import 'package:ferticore_ai/services/history_service.dart';
+import 'package:ferticore_ai/services/ble_service.dart';
+import 'package:ferticore_ai/theme/theme.dart';
 
 class RekomendasiCardWidget extends StatefulWidget {
-  final MqttService mqtt;
-
-  const RekomendasiCardWidget({super.key, required this.mqtt});
+  const RekomendasiCardWidget({super.key});
 
   @override
   State<RekomendasiCardWidget> createState() =>
@@ -124,21 +124,34 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
   }
 
   // =========================
-  // SEND TO ESP
+  // SEND TO ESP (BLE)
   // =========================
-  void _sendToEsp() {
+  void _sendToEsp() async {
     if (_result == null) {
       _showMessage("Belum ada hasil perhitungan", error: true);
       return;
     }
 
-    if (!widget.mqtt.isEspOnline) {
-      _showMessage("ESP tidak aktif / offline", error: true);
+    final ble = Provider.of<BleService>(context, listen: false);
+    final history = Provider.of<HistoryService>(context, listen: false);
+
+    if (ble.activeDevice == null) {
+      _showMessage("Tidak ada perangkat yang aktif. Pilih di menu Device.", error: true);
       return;
     }
 
-    widget.mqtt.setDosis(_result!.dosisPerTanaman);
-    _showMessage("Dosis ${_result!.dosisPerTanaman} gram berhasil dikirim ke ESP");
+    ble.setDosis(_result!.dosisPerTanaman);
+    
+    // Save to history
+    await history.addRecord(
+      deviceName: ble.activeDevice?.advName ?? 'Unknown Device',
+      deviceId: ble.activeDevice?.remoteId.str ?? '',
+      action: 'Rekomendasi',
+      dosis: _result!.dosisPerTanaman,
+      details: '${_commodity?.name}, ${_hst.text} HST, ${_luas.text} m²',
+    );
+
+    _showMessage("Dosis ${_result!.dosisPerTanaman} gram berhasil dikirim ke perangkat");
   }
 
   @override
