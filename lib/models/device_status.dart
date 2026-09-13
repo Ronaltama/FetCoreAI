@@ -22,4 +22,14 @@ class DeviceStatus {
       rataRata: (json['rataRata'] ?? 0.0).toDouble(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'gramasi': gramasi,
+      'isMotorRunning': isMotorRunning,
+      'totalVolume': totalVolume,
+      'totalSesi': totalSesi,
+      'rataRata': rataRata,
+    };
+  }
 }

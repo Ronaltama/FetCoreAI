@@ -116,6 +116,32 @@ class RxCallbacks: public BLECharacteristicCallbacks {
             updateLayarOLED("SIAP");
           }
         }
+        // Perintah 3: Trigger Mulai Pemupukan dari HP
+        else if (doc.containsKey("trigger")) {
+          if (doc["trigger"] == true && !isMotorRunning) {
+            isMotorRunning = true;
+            waktuMulaiMotor = millis();
+            digitalWrite(pinMotorDC, HIGH);
+            Serial.printf("[ACTION] Remote Trigger dari HP! Memupuk %.1f g\n", gramasi);
+            updateLayarOLED("MEMUPUK...");
+            kirimDataBLE();
+          }
+        }
+        // Perintah 4: Tare Timbangan (Nol-kan)
+        else if (doc.containsKey("tare")) {
+          if (doc["tare"] == true) {
+            Serial.println("[ACTION] Tare Timbangan ke 0g");
+            updateLayarOLED("TARE: 0g");
+            kirimDataBLE();
+            delay(800);
+            updateLayarOLED("SIAP");
+          }
+        }
+        // Perintah 5: Permintaan Sinkronisasi Data
+        else if (doc.containsKey("sync")) {
+          Serial.println("[ACTION] Request Telemetry Sync");
+          kirimDataBLE();
+        }
       }
     }
 };

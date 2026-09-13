@@ -119,16 +119,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       statusText = 'BT Off';
       color = AppTheme.errorColor;
       icon = Icons.bluetooth_disabled;
-    } else if (ble.connectedDevices.isNotEmpty) {
-      statusText = '${ble.connectedDevices.length} Connected';
+    } else if (ble.isConnected) {
+      statusText = 'Online';
       color = AppTheme.successColor;
       icon = Icons.bluetooth_connected;
+    } else if (ble.isConnecting) {
+      statusText = 'Menyambung...';
+      color = AppTheme.primaryBlue;
+      icon = Icons.sync;
     } else if (ble.isScanning) {
       statusText = 'Scanning...';
       color = AppTheme.warningColor;
       icon = Icons.search;
+    } else if (ble.savedDeviceId != null) {
+      statusText = 'Offline';
+      color = AppTheme.warningColor;
+      icon = Icons.cloud_off;
     } else {
-      statusText = 'Disconnected';
+      statusText = 'Terputus';
       color = AppTheme.textGrey;
       icon = Icons.bluetooth;
     }

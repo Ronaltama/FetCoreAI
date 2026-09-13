@@ -38,12 +38,12 @@ class InfoPage extends StatelessWidget {
                 const SizedBox(width: AppTheme.spacingLG),
                 Expanded(
                   child: _buildStatusCard(
-                    title: 'Perangkat',
-                    status: ble.connectedDevices.isNotEmpty 
-                        ? '${ble.connectedDevices.length} Terhubung' 
-                        : 'Tidak Terhubung',
-                    isActive: ble.connectedDevices.isNotEmpty,
-                    icon: Icons.link,
+                    title: 'Status Alat',
+                    status: ble.isConnected 
+                        ? 'Online (Terhubung)' 
+                        : (ble.savedDeviceId != null ? 'Offline (Tersimpan)' : 'Belum Ada Alat'),
+                    isActive: ble.isConnected,
+                    icon: Icons.bluetooth_connected,
                   ),
                 ),
               ],
@@ -108,8 +108,8 @@ class InfoPage extends StatelessWidget {
     final features = [
       ('Monitoring Dosis', 'Pantau dosis pupuk secara real-time langsung dari perangkat via BLE', Icons.monitor_heart_rounded),
       ('Rekomendasi AI', 'Hitung dosis berbasis agronomi (komoditas, luas, HST)', Icons.lightbulb_rounded),
-      ('Kontrol Manual', 'Atur dosis sesuai kebutuhan dengan cepat', Icons.touch_app_rounded),
-      ('Multi-Device', 'Terhubung dan kontrol beberapa alat sekaligus', Icons.devices),
+      ('Kontrol Manual & Remote Trigger', 'Atur dosis dan nyalakan penaburan langsung dari HP', Icons.touch_app_rounded),
+      ('Offline-First & Auto-Reconnect', 'Koneksi otomatis dan data statistik tersimpan di memori HP meski alat offline', Icons.cloud_done_rounded),
       ('Riwayat Pemupukan', 'Log otomatis penggunaan pupuk tersimpan di aplikasi', Icons.history),
     ];
 

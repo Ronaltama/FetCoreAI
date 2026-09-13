@@ -154,6 +154,16 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
     _showMessage("Dosis ${_result!.dosisPerTanaman} gram berhasil dikirim ke perangkat");
   }
 
+  void _triggerDispense() {
+    final ble = Provider.of<BleService>(context, listen: false);
+    if (!ble.isConnected) {
+      _showMessage("Alat belum terhubung. Sambungkan di menu Device.", error: true);
+      return;
+    }
+    ble.triggerMotor();
+    _showMessage("Perintah Mulai Tabur dikirim ke alat!");
+  }
+
   @override
   void dispose() {
     _hst.dispose();
@@ -363,14 +373,32 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
 
           const SizedBox(height: 12),
 
-          // ================= ESP BUTTON =================
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _sendToEsp,
-              icon: const Icon(Icons.send),
-              label: const Text("Kirim ke ESP"),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _sendToEsp,
+                  icon: const Icon(Icons.send, size: 18),
+                  label: const Text("Kirim Dosis"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _triggerDispense,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: const Text("Mulai Tabur"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ],

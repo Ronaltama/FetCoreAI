@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:ferticore_ai/models/device_status.dart';
 import 'package:ferticore_ai/services/ble_service.dart';
 import 'package:ferticore_ai/theme/theme.dart';
@@ -50,7 +51,7 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
               ),
               const SizedBox(height: AppTheme.spacingMD),
               Text(
-                'Yakin ingin mereset semua statistik? Tindakan ini tidak dapat dibatalkan.',
+                'Yakin ingin mereset semua statistik penggunaan? Total volume dan sesi akan kembali ke 0.',
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -73,12 +74,10 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        if (widget.ble.activeDevice == null) {
-                          _showFeedback('Tidak ada perangkat aktif', isError: true);
-                          return;
-                        }
                         widget.ble.resetStats();
-                        _showFeedback('Perintah reset statistik terkirim');
+                        _showFeedback(widget.ble.isConnected
+                            ? 'Statistik di-reset pada alat & aplikasi'
+                            : 'Statistik lokal di-reset');
                       },
                       child: const Text('Reset'),
                     ),
@@ -108,6 +107,13 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
     final totalVolume = widget.status?.totalVolume ?? 0.0;
     final rataRata = widget.status?.rataRata ?? 0.0;
     final totalSesi = widget.status?.totalSesi ?? 0;
+    final isLive = widget.ble.isLive;
+    final hasData = widget.status != null;
+
+    String syncTimeText = "";
+    if (widget.ble.lastSyncTime != null) {
+      syncTimeText = DateFormat('dd MMM HH:mm').format(widget.ble.lastSyncTime!);
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -117,30 +123,50 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
       ),
       padding: const EdgeInsets.all(AppTheme.spacingXL),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Heading
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacingMD),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.accentGreen, Color(0xFF16A34A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spacingMD),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.accentGreen, Color(0xFF16A34A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                    ),
+                    child: const Icon(
+                      Icons.bar_chart_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                ),
-                child: const Icon(
-                  Icons.bar_chart_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacingLG),
-              Text(
-                'Statistik Penggunaan',
-                style: Theme.of(context).textTheme.titleLarge,
+                  const SizedBox(width: AppTheme.spacingLG),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Statistik Penggunaan',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        isLive 
+                            ? 'Sinkronisasi Live' 
+                            : (hasData ? 'Tersimpan (Sync: $syncTimeText)' : 'Belum ada rekaman data'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isLive ? AppTheme.successColor : AppTheme.textGrey,
+                          fontWeight: isLive ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -152,6 +178,7 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
               borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -159,14 +186,14 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
                 _buildStatItem(
                   context,
                   'Total Volume',
-                  '${totalVolume.toStringAsFixed(2)} g',
+                  '${totalVolume.toStringAsFixed(1)} g',
                   Icons.balance,
                 ),
                 Container(width: 1, height: 60, color: AppTheme.borderColor),
                 _buildStatItem(
                   context,
                   'Rata-rata',
-                  '${rataRata.toStringAsFixed(2)} g',
+                  '${rataRata.toStringAsFixed(1)} g',
                   Icons.trending_up,
                 ),
                 Container(width: 1, height: 60, color: AppTheme.borderColor),
@@ -184,12 +211,12 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
           // Reset Button
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: OutlinedButton.icon(
               onPressed: _showResetStatsDialog,
-              icon: const Icon(Icons.restart_alt_rounded),
-              label: const Text('Reset Statistik'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.warningColor,
+              icon: const Icon(Icons.restart_alt_rounded, color: AppTheme.errorColor, size: 18),
+              label: const Text('Reset Statistik', style: TextStyle(color: AppTheme.errorColor)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.5)),
               ),
             ),
           ),
@@ -207,7 +234,7 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: AppTheme.primaryBlue, size: 24),
+          Icon(icon, color: AppTheme.primaryBlue, size: 22),
           const SizedBox(height: AppTheme.spacingSM),
           Text(
             value,

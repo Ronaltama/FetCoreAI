@@ -74,6 +74,16 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
     setState(() => _isLoading = false);
   }
 
+  void _triggerDispense() {
+    final ble = Provider.of<BleService>(context, listen: false);
+    if (!ble.isConnected) {
+      _showFeedback('Alat belum terhubung. Sambungkan di menu Device.', isError: true);
+      return;
+    }
+    ble.triggerMotor();
+    _showFeedback('Perintah Mulai Tabur dikirim ke alat!');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -174,25 +184,40 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
           ),
           const SizedBox(height: AppTheme.spacingXL),
 
-          // Apply button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _applyDosis,
-              icon: _isLoading
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    )
-                  : const Icon(Icons.send_rounded),
-              label: Text(_isLoading ? 'Mengirim...' : 'Terapkan Dosis'),
-            ),
+          // Apply & Trigger buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _applyDosis,
+                  icon: _isLoading
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
+                  label: Text(_isLoading ? 'Mengirim...' : 'Terapkan Dosis'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _triggerDispense,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: const Text('Mulai Tabur'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
