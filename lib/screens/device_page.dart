@@ -86,8 +86,8 @@ class DevicePage extends StatelessWidget {
     final isConnecting = ble.isConnecting;
     final savedDevice = ble.savedDeviceId;
     final deviceName = isConnected
-        ? (ble.connectedDevice?.advName.isNotEmpty == true ? ble.connectedDevice!.advName : 'FERTICORE-01')
-        : (ble.savedDeviceName ?? 'FERTICORE-01');
+        ? (ble.connectedDevice?.advName.isNotEmpty == true ? ble.connectedDevice!.advName : 'FETCORE-01')
+        : (ble.savedDeviceName ?? 'FETCORE-01');
 
     return Container(
       decoration: BoxDecoration(
@@ -250,32 +250,7 @@ class DevicePage extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spacingMD),
 
-          // Tool 1: Tare Timbangan (Zeroing)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.scale, color: AppTheme.primaryBlue, size: 20),
-            ),
-            title: const Text('Nol-kan Timbangan (Tare)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            subtitle: const Text('Kalibrasi bobot wadah kosong menjadi 0.00 gram', style: TextStyle(fontSize: 12)),
-            trailing: OutlinedButton(
-              onPressed: isConnected
-                  ? () {
-                      ble.tareScale();
-                      _showFeedback(context, 'Perintah Tare (Nol-kan Timbangan) terkirim');
-                    }
-                  : null,
-              child: const Text('Tare'),
-            ),
-          ),
-          const Divider(),
-
-          // Tool 2: Uji Motor Tabur
+          // Kontrol: Uji Pompa (Test Pump)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Container(
@@ -284,22 +259,22 @@ class DevicePage extends StatelessWidget {
                 color: AppTheme.accentGreen.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.rotate_right_rounded, color: AppTheme.accentGreen, size: 20),
+              child: const Icon(Icons.water_drop_rounded, color: AppTheme.accentGreen, size: 20),
             ),
-            title: const Text('Mulai Penaburan Uji', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            subtitle: const Text('Nyalakan motor penabur untuk menguji 1 sesi pemupukan', style: TextStyle(fontSize: 12)),
+            title: const Text('Uji Pompa (Test Pump)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            subtitle: const Text('Nyalakan pompa pupuk sekali sesuai dosis yang sudah diset', style: TextStyle(fontSize: 12)),
             trailing: ElevatedButton(
               onPressed: isConnected
                   ? () {
                       ble.triggerMotor();
-                      _showFeedback(context, 'Perintah Mulai Tabur terkirim ke alat!');
+                      _showFeedback(context, 'Perintah Aktifkan Pompa terkirim ke alat!');
                     }
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accentGreen,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Mulai Tabur'),
+              child: const Text('Aktifkan'),
             ),
           ),
         ],

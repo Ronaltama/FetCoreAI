@@ -44,11 +44,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'FERTICORE AI',
+              'FETCORE AI',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             Text(
-              'Sistem Tabur Presisi (BLE)',
+              'Sistem Dosing Presisi (BLE)',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
             ),
           ],

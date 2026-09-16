@@ -135,23 +135,23 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
     final ble = Provider.of<BleService>(context, listen: false);
     final history = Provider.of<HistoryService>(context, listen: false);
 
-    if (ble.activeDevice == null) {
-      _showMessage("Tidak ada perangkat yang aktif. Pilih di menu Device.", error: true);
+    if (!ble.isConnected) {
+      _showMessage("Alat belum terhubung. Sambungkan di menu Device.", error: true);
       return;
     }
 
     ble.setDosis(_result!.dosisPerTanaman);
-    
+
     // Save to history
     await history.addRecord(
-      deviceName: ble.activeDevice?.advName ?? 'Unknown Device',
-      deviceId: ble.activeDevice?.remoteId.str ?? '',
-      action: 'Rekomendasi',
+      deviceName: ble.connectedDevice?.advName ?? 'FETCORE-01',
+      deviceId: ble.connectedDevice?.remoteId.str ?? '',
+      action: 'Rekomendasi AI',
       dosis: _result!.dosisPerTanaman,
       details: '${_commodity?.name}, ${_hst.text} HST, ${_luas.text} m²',
     );
 
-    _showMessage("Dosis ${_result!.dosisPerTanaman} gram berhasil dikirim ke perangkat");
+    _showMessage("Dosis ${_result!.dosisPerTanaman.toStringAsFixed(1)} mL berhasil dikirim ke alat!");
   }
 
   void _triggerDispense() {
@@ -161,7 +161,7 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
       return;
     }
     ble.triggerMotor();
-    _showMessage("Perintah Mulai Tabur dikirim ke alat!");
+    _showMessage("Perintah Aktifkan Pompa dikirim ke alat!");
   }
 
   @override
@@ -350,7 +350,7 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        "${_result!.dosisPerTanaman.toStringAsFixed(2)} g",
+                        "${_result!.dosisPerTanaman.toStringAsFixed(2)} mL",
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.blue,
@@ -379,7 +379,7 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
                 child: ElevatedButton.icon(
                   onPressed: _sendToEsp,
                   icon: const Icon(Icons.send, size: 18),
-                  label: const Text("Kirim Dosis"),
+                  label: const Text("Kirim Dosis ke Alat"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryBlue,
                     foregroundColor: Colors.white,
@@ -391,7 +391,7 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
                 child: ElevatedButton.icon(
                   onPressed: _triggerDispense,
                   icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: const Text("Mulai Tabur"),
+                  label: const Text("Aktifkan Pompa"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.accentGreen,
                     foregroundColor: Colors.white,

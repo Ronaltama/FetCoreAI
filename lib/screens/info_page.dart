@@ -90,10 +90,10 @@ class InfoPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('FERTICORE AI (BLE)', style: Theme.of(context).textTheme.titleLarge),
+                Text('FETCORE AI', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: AppTheme.spacingSM),
                 Text(
-                  'Sistem kontrol dan monitoring alat tabur pupuk presisi via Bluetooth',
+                  'Sistem kontrol dosing pupuk cair presisi via Bluetooth',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
                 ),
               ],

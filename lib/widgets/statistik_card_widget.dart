@@ -186,14 +186,14 @@ class _StatistikCardWidgetState extends State<StatistikCardWidget> {
                 _buildStatItem(
                   context,
                   'Total Volume',
-                  '${totalVolume.toStringAsFixed(1)} g',
-                  Icons.balance,
+                  '${totalVolume.toStringAsFixed(1)} mL',
+                  Icons.water_drop_rounded,
                 ),
                 Container(width: 1, height: 60, color: AppTheme.borderColor),
                 _buildStatItem(
                   context,
                   'Rata-rata',
-                  '${rataRata.toStringAsFixed(1)} g',
+                  '${rataRata.toStringAsFixed(1)} mL',
                   Icons.trending_up,
                 ),
                 Container(width: 1, height: 60, color: AppTheme.borderColor),

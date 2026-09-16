@@ -50,24 +50,24 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
     final ble = Provider.of<BleService>(context, listen: false);
     final history = Provider.of<HistoryService>(context, listen: false);
 
-    if (ble.activeDevice == null) {
-      _showFeedback('Tidak ada perangkat aktif. Pilih di menu Device.', isError: true);
+    if (!ble.isConnected) {
+      _showFeedback('Alat belum terhubung. Sambungkan di menu Device.', isError: true);
       setState(() => _isLoading = false);
       return;
     }
 
     ble.setDosis(dosis);
-    
+
     // Save to history
     await history.addRecord(
-      deviceName: ble.activeDevice?.advName ?? 'Unknown Device',
-      deviceId: ble.activeDevice?.remoteId.str ?? '',
+      deviceName: ble.connectedDevice?.advName ?? 'FETCORE-01',
+      deviceId: ble.connectedDevice?.remoteId.str ?? '',
       action: 'Manual',
       dosis: dosis,
-      details: 'Pengaturan dosis manual',
+      details: 'Pengaturan dosis manual ${dosis.toStringAsFixed(1)} mL',
     );
 
-    _showFeedback('Dosis $dosis gram telah dikirim');
+    _showFeedback('Dosis ${dosis.toStringAsFixed(1)} mL berhasil dikirim ke alat!');
     _manualDosisController.clear();
 
     await Future.delayed(const Duration(milliseconds: 500));
@@ -81,7 +81,7 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
       return;
     }
     ble.triggerMotor();
-    _showFeedback('Perintah Mulai Tabur dikirim ke alat!');
+    _showFeedback('Perintah Aktifkan Pompa dikirim ke alat!');
   }
 
   @override
@@ -143,10 +143,10 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             enabled: !_isLoading,
             decoration: InputDecoration(
-              labelText: 'Masukkan Dosis (gram)',
-              hintText: 'Contoh: 50.5',
-              prefixIcon: const Icon(Icons.scale_rounded),
-              suffixText: 'g',
+              labelText: 'Masukkan Dosis (mL)',
+              hintText: 'Contoh: 15.5',
+              prefixIcon: const Icon(Icons.water_drop_rounded),
+              suffixText: 'mL',
               errorText:
                   _manualDosisController.text.isNotEmpty &&
                       double.tryParse(_manualDosisController.text) == null
@@ -173,7 +173,7 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
                 const SizedBox(width: AppTheme.spacingMD),
                 Expanded(
                   child: Text(
-                    'Dosis akan langsung diterapkan pada alat jika ESP aktif',
+                    'Dosis (mL) akan langsung dikirim dan ditampilkan di OLED alat',
                     style: Theme.of(
                       context,
                     ).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
@@ -210,7 +210,7 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
                 child: ElevatedButton.icon(
                   onPressed: _triggerDispense,
                   icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: const Text('Mulai Tabur'),
+                  label: const Text('Aktifkan Pompa'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.accentGreen,
                     foregroundColor: Colors.white,

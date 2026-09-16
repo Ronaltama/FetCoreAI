@@ -116,8 +116,8 @@ class DosisCardWidget extends StatelessWidget {
                 const SizedBox(height: AppTheme.spacingSM),
                 Text(
                   isLive 
-                      ? 'gram (Real-time dari Alat)' 
-                      : (hasData ? 'gram (Data Terakhir: $syncInfo)' : 'Hubungkan alat untuk sinkronisasi'),
+                      ? 'mL (Real-time dari Alat)' 
+                      : (hasData ? 'mL (Data Terakhir: $syncInfo)' : 'Hubungkan alat untuk sinkronisasi'),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: isLive ? AppTheme.primaryBlue : AppTheme.textGrey,
                     fontWeight: isLive ? FontWeight.w600 : FontWeight.normal,
@@ -203,7 +203,7 @@ class DosisCardWidget extends StatelessWidget {
                       ),
                       const SizedBox(width: AppTheme.spacingSM),
                       Text(
-                        isMotorRunning ? 'Motor: Menabur' : 'Motor: Standby',
+                      isMotorRunning ? 'Pompa: Aktif' : 'Pompa: Standby',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: isMotorRunning ? AppTheme.accentGreen : AppTheme.textGrey,
                               fontWeight: FontWeight.w600,
