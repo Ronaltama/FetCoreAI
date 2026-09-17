@@ -207,16 +207,25 @@ class DevicePage extends StatelessWidget {
               ],
             )
           else
-            SizedBox(
+            Container(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: (!ble.isBluetoothOn) ? null : () => ble.startScan(),
-                icon: const Icon(Icons.search, size: 18),
-                label: const Text('Cari & Pasang Alat'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlue,
-                  foregroundColor: Colors.white,
-                ),
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingMD, horizontal: AppTheme.spacingLG),
+              decoration: BoxDecoration(
+                color: AppTheme.infoColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                border: Border.all(color: AppTheme.infoColor.withValues(alpha: 0.2)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.infoColor, size: 18),
+                  SizedBox(width: AppTheme.spacingMD),
+                  Expanded(
+                    child: Text(
+                      'Pilih dan pasang alat FETCORE-01 melalui daftar pindai di bawah.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textDark),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -398,7 +407,7 @@ class DevicePage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Cari / Ganti Alat (BLE Scan)',
+              'Pindai Perangkat (BLE Scan)',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             ElevatedButton.icon(

@@ -30,6 +30,7 @@ class InfoPage extends StatelessWidget {
                 Expanded(
                   child: _buildStatusCard(
                     title: 'Bluetooth HP',
+                    subtitle: 'Adaptor Ponsel',
                     status: ble.isBluetoothOn ? 'Aktif' : 'Nonaktif',
                     isActive: ble.isBluetoothOn,
                     icon: Icons.bluetooth,
@@ -39,9 +40,10 @@ class InfoPage extends StatelessWidget {
                 Expanded(
                   child: _buildStatusCard(
                     title: 'Status Alat',
+                    subtitle: 'ESP32 BLE',
                     status: ble.isConnected 
-                        ? 'Online (Terhubung)' 
-                        : (ble.savedDeviceId != null ? 'Offline (Tersimpan)' : 'Belum Ada Alat'),
+                        ? 'Online' 
+                        : (ble.savedDeviceId != null ? 'Offline (Tersimpan)' : 'Belum Terpasang'),
                     isActive: ble.isConnected,
                     icon: Icons.bluetooth_connected,
                   ),
@@ -51,10 +53,10 @@ class InfoPage extends StatelessWidget {
 
             const SizedBox(height: AppTheme.spacingXL),
 
-            // ================= FEATURES =================
-            Text('Fitur Utama', style: Theme.of(context).textTheme.titleLarge),
+            // ================= PANDUAN RINGKAS =================
+            Text('Petunjuk Pengoperasian', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppTheme.spacingLG),
-            ..._buildFeatures(context),
+            _guideCard(context),
 
             const SizedBox(height: AppTheme.spacingXL),
 
@@ -83,7 +85,7 @@ class InfoPage extends StatelessWidget {
               color: AppTheme.primaryBlue.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.radiusMD),
             ),
-            child: const Icon(Icons.info_rounded, color: AppTheme.primaryBlue, size: 24),
+            child: const Icon(Icons.water_drop_rounded, color: AppTheme.primaryBlue, size: 24),
           ),
           const SizedBox(width: AppTheme.spacingLG),
           Expanded(
@@ -93,7 +95,7 @@ class InfoPage extends StatelessWidget {
                 Text('FETCORE AI', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: AppTheme.spacingSM),
                 Text(
-                  'Sistem kontrol dosing pupuk cair presisi via Bluetooth',
+                  'Sistem Kontrol Dosing Pupuk Cair Presisi via Bluetooth BLE',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
                 ),
               ],
@@ -104,56 +106,9 @@ class InfoPage extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildFeatures(BuildContext context) {
-    final features = [
-      ('Monitoring Dosis', 'Pantau dosis pupuk secara real-time langsung dari perangkat via BLE', Icons.monitor_heart_rounded),
-      ('Rekomendasi AI', 'Hitung dosis berbasis agronomi (komoditas, luas, HST)', Icons.lightbulb_rounded),
-      ('Kontrol Manual & Remote Trigger', 'Atur dosis dan nyalakan penaburan langsung dari HP', Icons.touch_app_rounded),
-      ('Offline-First & Auto-Reconnect', 'Koneksi otomatis dan data statistik tersimpan di memori HP meski alat offline', Icons.cloud_done_rounded),
-      ('Riwayat Pemupukan', 'Log otomatis penggunaan pupuk tersimpan di aplikasi', Icons.history),
-    ];
-
-    return features.map((feature) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: AppTheme.spacingLG),
-        padding: const EdgeInsets.all(AppTheme.spacingLG),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-          border: Border.all(color: AppTheme.borderColor),
-          color: AppTheme.surfaceLight,
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spacingMD),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-              ),
-              child: Icon(feature.$3, color: AppTheme.primaryBlue, size: 20),
-            ),
-            const SizedBox(width: AppTheme.spacingLG),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(feature.$1, style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: AppTheme.spacingSM),
-                  Text(
-                    feature.$2,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textGrey),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
   Widget _buildStatusCard({
     required String title,
+    required String subtitle,
     required String status,
     required bool isActive,
     required IconData icon,
@@ -173,18 +128,72 @@ class InfoPage extends StatelessWidget {
         children: [
           Icon(icon, color: isActive ? AppTheme.successColor : AppTheme.errorColor, size: 32),
           const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(subtitle, style: const TextStyle(fontSize: 10, color: AppTheme.textGrey)),
+          const SizedBox(height: 6),
           Text(
             status,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.bold,
+              fontSize: 12,
               color: isActive ? AppTheme.successColor : AppTheme.errorColor,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _guideCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacingLG),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLight,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        children: [
+          _guideItem(
+            Icons.bluetooth_searching,
+            '1. Hubungkan Alat',
+            'Buka menu Device untuk memindai sinyal "FETCORE-01" dan hubungkan.',
+          ),
+          const Divider(height: 16),
+          _guideItem(
+            Icons.speed_rounded,
+            '2. Kalibrasi Pompa',
+            'Atur durasi ms per 5 mL di menu Device agar takaran semprot presisi.',
+          ),
+          const Divider(height: 16),
+          _guideItem(
+            Icons.touch_app,
+            '3. Atur & Semprot Dosis',
+            'Terapkan dosis dari menu Manual atau Rekomendasi AI, lalu klik "Aktifkan Pompa" atau tekan tombol Pin 33 di alat.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _guideItem(IconData icon, String title, String desc) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppTheme.primaryBlue, size: 20),
+        const SizedBox(width: AppTheme.spacingMD),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 2),
+              Text(desc, style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -200,7 +209,7 @@ class InfoPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text('Versi Aplikasi', style: Theme.of(context).textTheme.bodySmall),
-          Text('1.1.0 (BLE)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          Text('v2.1 (BLE Edition)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
         ],
       ),
     );
