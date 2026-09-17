@@ -144,6 +144,13 @@ class BleService extends ChangeNotifier {
 
       await device.connect(autoConnect: false, timeout: const Duration(seconds: 8));
 
+      // Request MTU lebih besar agar payload JSON telemetri tidak terpotong di Android
+      try {
+        await device.requestMtu(256);
+      } catch (e) {
+        debugPrint("MTU request warning: $e");
+      }
+
       _connectedDevice = device;
       _savedDeviceId = device.remoteId.str;
       _savedDeviceName = device.advName.isNotEmpty ? device.advName : "FERTICORE-01";
@@ -277,7 +284,8 @@ class BleService extends ChangeNotifier {
   // Perintah Bisnis
   void setDosis(double value) => sendData({'set_dosis': value});
   void triggerMotor() => sendData({'trigger': true});
-  void tareScale() => sendData({'tare': true});
+  void stopPump() => sendData({'stop': true});
+  void setCalibration(int msPer5Ml) => sendData({'cal_ms': msPer5Ml});
   void requestSync() => sendData({'sync': true});
   
   void resetStats() async {
@@ -289,6 +297,7 @@ class BleService extends ChangeNotifier {
       totalVolume: 0.0,
       totalSesi: 0,
       rataRata: 0.0,
+      calMs: activeDeviceStatus?.calMs ?? 3000,
     );
     _cachedStatus = _liveStatus;
     _lastSyncTime = DateTime.now();

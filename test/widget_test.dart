@@ -1,30 +1,45 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:ferticore_ai/main.dart';
+import 'package:ferticore_ai/models/device_status.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('DeviceStatus Model Tests', () {
+    test('DeviceStatus fromJson parses firmware payload correctly', () {
+      final json = {
+        'dosis_ml': 15.0,
+        'isPompaOn': true,
+        'totalVolume': 45.5,
+        'totalSesi': 3,
+        'rataRata': 15.17,
+        'cal_ms': 3200,
+      };
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      final status = DeviceStatus.fromJson(json);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      expect(status.gramasi, 15.0);
+      expect(status.isMotorRunning, true);
+      expect(status.totalVolume, 45.5);
+      expect(status.totalSesi, 3);
+      expect(status.rataRata, 15.17);
+      expect(status.calMs, 3200);
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('DeviceStatus toJson includes cal_ms and backward compatible fields', () {
+      final status = DeviceStatus(
+        gramasi: 20.0,
+        isMotorRunning: false,
+        totalVolume: 100.0,
+        totalSesi: 5,
+        rataRata: 20.0,
+        calMs: 2500,
+      );
+
+      final json = status.toJson();
+
+      expect(json['dosis_ml'], 20.0);
+      expect(json['isPompaOn'], false);
+      expect(json['totalVolume'], 100.0);
+      expect(json['totalSesi'], 5);
+      expect(json['cal_ms'], 2500);
+    });
   });
 }

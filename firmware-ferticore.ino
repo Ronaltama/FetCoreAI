@@ -1,8 +1,8 @@
 // ============================================================
 //  FETCORE AI — ESP32 BLE FIRMWARE
 //  Hardware : ESP32 + OLED SSD1306 + MOSFET Module
-//  Versi    : 2.0
-//  Update   : Pin D16/D17, satuan mL, hold-to-pump trigger
+//  Versi    : 2.1
+//  Update   : Pin D16/D17, satuan mL, single-click dispense, emergency stop, kalibrasi NVS
 // ============================================================
 
 #include <BLEDevice.h>
@@ -23,7 +23,7 @@ const int pinSCL             = 22;   // OLED SCL
 const int pinMosfet          = 26;   // MOSFET module -> kontrol pompa
 const int pinBtnDosisKurang  = 16;   // D16 -> kurangi dosis (klik, per 5 mL)
 const int pinBtnDosisTambah  = 17;   // D17 -> tambah dosis  (klik, per 5 mL)
-const int pinBtnTrigger      = 33;   // Trigger pompa (TAHAN = nyala, LEPAS = mati)
+const int pinBtnTrigger      = 33;   // Trigger pompa (KLIK = semprot sesuai dosis, klik lagi = stop)
 
 // ============================================================
 //  KONFIGURASI OLED
@@ -62,9 +62,8 @@ int   totalSesiPompa = 0;
 
 // Status pompa
 bool          isPompaRunning  = false;
-bool          pompaFromButton = false;  // true = hold fisik | false = BLE timed
 unsigned long waktuMulaiPompa = 0;
-unsigned long durasiPompa     = 3000;  // durasi untuk BLE trigger (dihitung dari dosisMl)
+unsigned long durasiPompa     = 3000;  // durasi pemompaan (dihitung dari dosisMl)
 
 // Reset layar
 bool          isMenungguResetLayar = false;
@@ -120,19 +119,20 @@ class RxCallbacks : public BLECharacteristicCallbacks {
     if (doc.containsKey("set_dosis")) {
       float val = doc["set_dosis"];
       if (val > 0 && !isPompaRunning) {
+        if (val > maxDosisMl) val = maxDosisMl;  // Batasi agar tidak melebihi maksimum
         dosisMl     = val;
         durasiPompa = (dosisMl / 5.0) * waktuPer5Ml;
         preferences.putFloat("dosis_ml", dosisMl);
         Serial.printf("[ACTION] Dosis diatur ke: %.1f mL\n", dosisMl);
         updateLayarOLED("DOSIS BARU");
         kirimDataBLE();
-        delay(1000);
-        updateLayarOLED("SIAP");
+        isMenungguResetLayar = true;
+        waktuSelesaiPompa    = millis();
       }
     }
     // --- Perintah 2: Reset Statistik ---
     else if (doc.containsKey("reset_stats")) {
-      if (doc["reset_stats"] == true) {
+      if (doc["reset_stats"] == true && !isPompaRunning) {
         totalVolumeMl  = 0.0;
         totalSesiPompa = 0;
         preferences.putFloat("volume_ml", 0.0);
@@ -140,8 +140,8 @@ class RxCallbacks : public BLECharacteristicCallbacks {
         Serial.println("[ACTION] Statistik di-reset ke 0");
         updateLayarOLED("STAT RESET");
         kirimDataBLE();
-        delay(1000);
-        updateLayarOLED("SIAP");
+        isMenungguResetLayar = true;
+        waktuSelesaiPompa    = millis();
       }
     }
     // --- Perintah 3: Trigger Pompa dari HP (timed — sesuai dosisMl) ---
@@ -157,7 +157,30 @@ class RxCallbacks : public BLECharacteristicCallbacks {
         kirimDataBLE();
       }
     }
-    // --- Perintah 4: Sinkronisasi Data ---
+    // --- Perintah 4: Emergency Stop Pompa dari HP ---
+    else if (doc.containsKey("stop")) {
+      if (doc["stop"] == true && isPompaRunning) {
+        unsigned long durPumped = millis() - waktuMulaiPompa;
+        float volPumped = (durPumped / (float)waktuPer5Ml) * 5.0;
+        Serial.printf("[ACTION] BLE Stop! Pompa dihentikan (%lu ms -> %.2f mL)\n", durPumped, volPumped);
+        selesaiPompa(volPumped);
+      }
+    }
+    // --- Perintah 5: Kalibrasi Debit Pompa (ms per 5 mL) ---
+    else if (doc.containsKey("cal_ms")) {
+      int val = doc["cal_ms"];
+      if (val >= 500 && val <= 30000 && !isPompaRunning) {
+        waktuPer5Ml = val;
+        preferences.putInt("cal_ms", waktuPer5Ml);
+        durasiPompa = (dosisMl / 5.0) * waktuPer5Ml;
+        Serial.printf("[ACTION] Kalibrasi diset: %d ms per 5 mL\n", waktuPer5Ml);
+        updateLayarOLED("KALIBRASI OK");
+        kirimDataBLE();
+        isMenungguResetLayar = true;
+        waktuSelesaiPompa    = millis();
+      }
+    }
+    // --- Perintah 6: Sinkronisasi Data ---
     else if (doc.containsKey("sync")) {
       Serial.println("[ACTION] Request Sync");
       kirimDataBLE();
@@ -212,6 +235,7 @@ void kirimDataBLE() {
   doc["totalSesi"]   = totalSesiPompa;
   doc["rataRata"]    = rataRata;
   doc["status"]      = currentStatus;
+  doc["cal_ms"]      = waktuPer5Ml;
 
   char buffer[256];
   size_t len = serializeJson(doc, buffer);
@@ -226,8 +250,7 @@ void kirimDataBLE() {
 //  FUNGSI SELESAI POMPA — catat statistik
 // ============================================================
 void selesaiPompa(float volumeDisemprotkan) {
-  isPompaRunning  = false;
-  pompaFromButton = false;
+  isPompaRunning = false;
   digitalWrite(pinMosfet, LOW);
 
   totalVolumeMl  += volumeDisemprotkan;
@@ -257,6 +280,7 @@ void setup() {
   dosisMl        = preferences.getFloat("dosis_ml", 5.0);
   totalVolumeMl  = preferences.getFloat("volume_ml", 0.0);
   totalSesiPompa = preferences.getInt("sesi", 0);
+  waktuPer5Ml    = preferences.getInt("cal_ms", 3000);
   durasiPompa    = (dosisMl / 5.0) * waktuPer5Ml;
 
   // --- OLED ---
@@ -384,36 +408,37 @@ void loop() {
   }
   lastDosisKurangState = readingKurang;
 
-  // -- 5. Tombol Trigger Pompa (TAHAN = nyala, LEPAS = mati) ----------
+  // -- 5. Tombol Trigger Pompa (Pin 33: KLIK = Semprot Sesuai Dosis, KLIK LAGI = Stop) --
   bool readingTrigger = digitalRead(pinBtnTrigger);
 
   // Tombol baru ditekan (edge: HIGH -> LOW)
   if (readingTrigger == LOW && lastTriggerState == HIGH) {
     delay(50);  // debounce
-    if (digitalRead(pinBtnTrigger) == LOW && !isPompaRunning) {
-      isPompaRunning  = true;
-      pompaFromButton = true;  // mode HOLD
-      waktuMulaiPompa = millis();
-      digitalWrite(pinMosfet, HIGH);
-      updateLayarOLED("MEMOMPA...");
-      kirimDataBLE();
-      Serial.println("[BTN TRIGGER] Pompa ON (hold mode)");
+    if (digitalRead(pinBtnTrigger) == LOW) {
+      if (isPompaRunning) {
+        // Jika pompa sedang aktif, klik lagi berfungsi sebagai Emergency Stop / Batal
+        unsigned long durPumped = millis() - waktuMulaiPompa;
+        float volPumped = (durPumped / (float)waktuPer5Ml) * 5.0;
+        Serial.printf("[BTN TRIGGER] Stop manual! Aktif %lu ms -> %.2f mL\n", durPumped, volPumped);
+        selesaiPompa(volPumped);
+      } else {
+        // Nyalakan pompa otomatis sesuai dosis yang sedang diset
+        isPompaRunning  = true;
+        waktuMulaiPompa = millis();
+        durasiPompa     = (dosisMl / 5.0) * waktuPer5Ml;
+        digitalWrite(pinMosfet, HIGH);
+        Serial.printf("[BTN TRIGGER] Mulai semprot dosis %.1f mL (durasi: %lu ms)\n", dosisMl, durasiPompa);
+        updateLayarOLED("MEMOMPA...");
+        kirimDataBLE();
+      }
     }
-  }
-
-  // Tombol dilepas saat pompa hold aktif (edge: LOW -> HIGH)
-  if (readingTrigger == HIGH && lastTriggerState == LOW && isPompaRunning && pompaFromButton) {
-    unsigned long durHold   = millis() - waktuMulaiPompa;
-    float         volActual = (durHold / (float)waktuPer5Ml) * 5.0;
-    Serial.printf("[BTN TRIGGER] Pompa OFF - hold %lu ms -> %.2f mL\n", durHold, volActual);
-    selesaiPompa(volActual);
   }
   lastTriggerState = readingTrigger;
 
-  // -- 6. Pompa BLE timed -- matikan setelah durasi selesai ------------
-  if (isPompaRunning && !pompaFromButton) {
+  // -- 6. Otomatis Matikan Pompa setelah durasi dosis tercapai ------------
+  if (isPompaRunning) {
     if (millis() - waktuMulaiPompa >= durasiPompa) {
-      Serial.printf("[BLE TRIGGER] Durasi %lu ms selesai -> %.1f mL\n", durasiPompa, dosisMl);
+      Serial.printf("[POMPA SELESAI] Durasi %lu ms tuntas -> %.1f mL\n", durasiPompa, dosisMl);
       selesaiPompa(dosisMl);
     }
   }

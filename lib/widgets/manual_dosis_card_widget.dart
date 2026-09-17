@@ -80,12 +80,20 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
       _showFeedback('Alat belum terhubung. Sambungkan di menu Device.', isError: true);
       return;
     }
-    ble.triggerMotor();
-    _showFeedback('Perintah Aktifkan Pompa dikirim ke alat!');
+    if (ble.activeDeviceStatus?.isMotorRunning == true) {
+      ble.stopPump();
+      _showFeedback('Perintah Hentikan Pompa dikirim ke alat!', isError: true);
+    } else {
+      ble.triggerMotor();
+      _showFeedback('Perintah Aktifkan Pompa dikirim ke alat!');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final ble = Provider.of<BleService>(context);
+    final isRunning = ble.activeDeviceStatus?.isMotorRunning ?? false;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusLG),
@@ -209,10 +217,13 @@ class _ManualDosisCardWidgetState extends State<ManualDosisCardWidget> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _triggerDispense,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: const Text('Aktifkan Pompa'),
+                  icon: Icon(
+                    isRunning ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                    size: 20,
+                  ),
+                  label: Text(isRunning ? 'Hentikan Pompa' : 'Aktifkan Pompa'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
+                    backgroundColor: isRunning ? AppTheme.errorColor : AppTheme.accentGreen,
                     foregroundColor: Colors.white,
                   ),
                 ),

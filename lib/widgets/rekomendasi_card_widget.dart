@@ -160,8 +160,13 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
       _showMessage("Alat belum terhubung. Sambungkan di menu Device.", error: true);
       return;
     }
-    ble.triggerMotor();
-    _showMessage("Perintah Aktifkan Pompa dikirim ke alat!");
+    if (ble.activeDeviceStatus?.isMotorRunning == true) {
+      ble.stopPump();
+      _showMessage("Perintah Hentikan Pompa dikirim ke alat!", error: true);
+    } else {
+      ble.triggerMotor();
+      _showMessage("Perintah Aktifkan Pompa dikirim ke alat!");
+    }
   }
 
   @override
@@ -173,6 +178,8 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final ble = Provider.of<BleService>(context);
+    final isRunning = ble.activeDeviceStatus?.isMotorRunning ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -390,10 +397,13 @@ class _RekomendasiCardWidgetState extends State<RekomendasiCardWidget> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _triggerDispense,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: const Text("Aktifkan Pompa"),
+                  icon: Icon(
+                    isRunning ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                    size: 20,
+                  ),
+                  label: Text(isRunning ? "Hentikan Pompa" : "Aktifkan Pompa"),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
+                    backgroundColor: isRunning ? AppTheme.errorColor : AppTheme.accentGreen,
                     foregroundColor: Colors.white,
                   ),
                 ),

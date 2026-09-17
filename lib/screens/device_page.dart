@@ -227,6 +227,8 @@ class DevicePage extends StatelessWidget {
   // 2. KARTU KONTROL HARDWARE & KALIBRASI
   Widget _buildHardwareToolsCard(BuildContext context, BleService ble) {
     final isConnected = ble.isConnected;
+    final isRunning = ble.activeDeviceStatus?.isMotorRunning ?? false;
+    final calMs = ble.activeDeviceStatus?.calMs ?? 3000;
 
     return Container(
       decoration: BoxDecoration(
@@ -250,32 +252,137 @@ class DevicePage extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spacingMD),
 
-          // Kontrol: Uji Pompa (Test Pump)
+          // Kontrol: Uji Pompa (Test Pump) / Hentikan
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withValues(alpha: 0.1),
+                color: (isRunning ? AppTheme.errorColor : AppTheme.accentGreen).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.water_drop_rounded, color: AppTheme.accentGreen, size: 20),
+              child: Icon(
+                isRunning ? Icons.stop_rounded : Icons.water_drop_rounded,
+                color: isRunning ? AppTheme.errorColor : AppTheme.accentGreen,
+                size: 20,
+              ),
             ),
-            title: const Text('Uji Pompa (Test Pump)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            subtitle: const Text('Nyalakan pompa pupuk sekali sesuai dosis yang sudah diset', style: TextStyle(fontSize: 12)),
+            title: Text(
+              isRunning ? 'Pompa Sedang Berjalan' : 'Uji Pompa (Test Pump)',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            subtitle: Text(
+              isRunning
+                  ? 'Pompa sedang aktif memompa pupuk. Tekan untuk berhenti.'
+                  : 'Nyalakan pompa pupuk sekali sesuai dosis yang sudah diset',
+              style: const TextStyle(fontSize: 12),
+            ),
             trailing: ElevatedButton(
               onPressed: isConnected
                   ? () {
-                      ble.triggerMotor();
-                      _showFeedback(context, 'Perintah Aktifkan Pompa terkirim ke alat!');
+                      if (isRunning) {
+                        ble.stopPump();
+                        _showFeedback(context, 'Perintah Hentikan Pompa terkirim!');
+                      } else {
+                        ble.triggerMotor();
+                        _showFeedback(context, 'Perintah Aktifkan Pompa terkirim ke alat!');
+                      }
                     }
                   : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentGreen,
+                backgroundColor: isRunning ? AppTheme.errorColor : AppTheme.accentGreen,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Aktifkan'),
+              child: Text(isRunning ? 'Hentikan' : 'Aktifkan'),
             ),
+          ),
+
+          const Divider(),
+
+          // Kontrol: Kalibrasi Debit Pompa
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.infoColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.speed_rounded, color: AppTheme.infoColor, size: 20),
+            ),
+            title: const Text('Kalibrasi Debit Pompa', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            subtitle: Text(
+              '$calMs ms per 5 mL (${(calMs / 1000).toStringAsFixed(1)} detik)',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: OutlinedButton(
+              onPressed: isConnected ? () => _showCalibrationDialog(context, ble) : null,
+              child: const Text('Ubah'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCalibrationDialog(BuildContext context, BleService ble) {
+    final currentMs = ble.activeDeviceStatus?.calMs ?? 3000;
+    final controller = TextEditingController(text: currentMs.toString());
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLG)),
+        title: const Row(
+          children: [
+            Icon(Icons.tune_rounded, color: AppTheme.primaryBlue),
+            SizedBox(width: 8),
+            Text('Kalibrasi Pompa', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Masukkan durasi waktu pompa yang dibutuhkan untuk mengeluarkan 5 mL cairan (dalam milidetik).',
+              style: TextStyle(fontSize: 13, color: AppTheme.textGrey),
+            ),
+            const SizedBox(height: AppTheme.spacingMD),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Waktu per 5 mL (ms)',
+                suffixText: 'ms',
+                hintText: 'Contoh: 3000',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = int.tryParse(controller.text);
+              if (val != null && val >= 500 && val <= 30000) {
+                ble.setCalibration(val);
+                Navigator.pop(ctx);
+                _showFeedback(context, 'Kalibrasi $val ms/5mL dikirim ke alat!');
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Nilai harus antara 500 ms - 30000 ms')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Simpan'),
           ),
         ],
       ),

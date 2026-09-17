@@ -4,6 +4,7 @@ class DeviceStatus {
   final double totalVolume;
   final int totalSesi;
   final double rataRata;
+  final int calMs;
 
   DeviceStatus({
     required this.gramasi,
@@ -11,6 +12,7 @@ class DeviceStatus {
     required this.totalVolume,
     required this.totalSesi,
     required this.rataRata,
+    this.calMs = 3000,
   });
 
   factory DeviceStatus.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class DeviceStatus {
       totalVolume: (json['totalVolume'] ?? 0.0).toDouble(),
       totalSesi: json['totalSesi'] ?? 0,
       rataRata: (json['rataRata'] ?? 0.0).toDouble(),
+      calMs: json['cal_ms'] ?? 3000,
     );
   }
 
@@ -32,6 +35,7 @@ class DeviceStatus {
       'totalVolume': totalVolume,
       'totalSesi': totalSesi,
       'rataRata': rataRata,
+      'cal_ms': calMs,
     };
   }
 }
